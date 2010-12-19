@@ -20,7 +20,7 @@ def create_doc_archive(params):
     if os.path.exists(params['archive']):
         print 'Error: doc archive file "%s" already exists.' % params['archive']
         exit(0)
-    
+
     # create doc archive
     import archive
     creator = archive.ArchiveCreator(params['archive'], params['index'])
@@ -52,7 +52,7 @@ def start_server(params):
         params['port'] = 3456
     if 'host' not in params:
         params['host'] = ''
-    
+
     if params['daemon']:
         # daemonize
         daemonize(do_start_server, params)
@@ -75,11 +75,11 @@ ACTIONS = {
 
 def extract_command(arguments):
     if len(arguments)==0: raise Exception('unknown command')
-    
+
     i = -1
     cmd = ''
     params = {'sources':[], 'daemon':True, 'host':'localhost'}
-    
+
     while True:
         i = i+1
         if i>=len(arguments): break
@@ -150,7 +150,7 @@ def extract_command(arguments):
                     raise Exception('command conflict: "%s" and "stop"' % cmd)
             else:
                 params['sources'].append(arguments[i])
-    
+
     if cmd=='':
         raise Exception('unknown command')
     elif cmd=='create':
@@ -158,13 +158,13 @@ def extract_command(arguments):
             raise Exception('no source listed')
         elif 'archive' not in params:
             raise Exception('-c without archive given')
-        
+
         if 'index' not in params:
             params['index'] = None
     elif cmd=='extract':
         if 'archive' not in params:
             raise Exception('-x without archive given')
-    
+
     return cmd, params
 
 
@@ -176,13 +176,13 @@ def print_help():
     print '    python docserver.py [-p 3456] stop'
 
 
-if __name__=='__main__':
+def main():
     try:
         cmd, params = extract_command(sys.argv[1:])
     except Exception, e:
         print 'Error:', e
         print_help()
         exit(0)
-    
+
     ACTIONS[cmd](params)
 
