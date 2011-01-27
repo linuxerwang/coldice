@@ -8,6 +8,7 @@ import threading
 
 from SocketServer import ThreadingMixIn, TCPServer
 from daemon import daemonize
+from optparse import OptionParser
 from servlet import DocServlet
 
 
@@ -15,174 +16,101 @@ class DocServer(ThreadingMixIn, TCPServer):
     allow_reuse_address = True
 
 
-def create_doc_archive(params):
+def create_doc_archive(archive_file, index_file, source_files):
+    if not source_files:
+        print 'Error, no source files given.'
+        exit(1)
+
     # check if file exists
-    if os.path.exists(params['archive']):
-        print 'Error: doc archive file "%s" already exists.' % params['archive']
-        exit(0)
+    if os.path.exists(archive_file):
+        print 'Error: doc archive file "%s" already exists.' % archive_file
+        exit(1)
 
     # create doc archive
     import archive
-    creator = archive.ArchiveCreator(params['archive'], params['index'])
-    for source in params['sources']:
+    creator = archive.ArchiveCreator(archive_file, index_file)
+    for source in source_files:
         creator.add_entry(source)
     creator.commit()
 
 
-def extract_doc_archive(params):
+def extract_doc_archive(archive_file):
+    # check if file exists
+    if not os.path.exists(archive_file):
+        print 'Error: doc archive file "%s" does not exist.' % archive_file
+        exit(1)
+
     # extract doc archive
     import archive
-    archive.extract_doc_archive(params['archive'])
+    archive.extract_doc_archive(archive_file)
 
 
-def do_start_server(params, daemonized=True):
+def do_start_server(params):
+    directory, host, port, ext, daemon = params
     import servlet
-    servlet.DAEMONIZED  = daemonized
-    if 'extension' in params:
-        servlet.DOC_ARC_EXT = params['extension']
-    servlet.HOME_FOLDER = os.path.abspath(params['directory'])
-    server_address = (params['host'], params['port'])
+    servlet.DAEMONIZED  = daemon
+    if ext:
+        servlet.DOC_ARC_EXT = ext
+    servlet.HOME_FOLDER = os.path.abspath(directory)
+    server_address = (host, port)
     httpd = DocServer(server_address, DocServlet)
     httpd.serve_forever()
 
 
-def start_server(params):
-    # start server
-    if 'port' not in params:
-        params['port'] = 3456
-    if 'host' not in params:
-        params['host'] = ''
-
-    if params['daemon']:
+def start_server(directory, host, port, ext, daemon):
+    if daemon:
         # daemonize
-        daemonize(do_start_server, params)
+        daemonize(do_start_server, (directory, host, port, ext, daemon))
     else:
-        do_start_server(params, False)
+        # interactive
+        do_start_server((directory, host, port, ext, daemon))
 
 
-def stop_server(params):
+def stop_server():
     # TODO: stop server
-    pass
-
-
-ACTIONS = {
-    'create' : create_doc_archive,
-    'extract': extract_doc_archive,
-    'start'  : start_server,
-    'stop'   : stop_server,
-}
-
-
-def extract_command(arguments):
-    if len(arguments)==0: raise Exception('unknown command')
-
-    i = -1
-    cmd = ''
-    params = {'sources':[], 'daemon':True, 'host':'localhost'}
-
-    while True:
-        i = i+1
-        if i>=len(arguments): break
-        if arguments[i].startswith('-'):
-            if arguments[i]=='-c':
-                cmd = 'create'
-                if i<len(arguments)-1:
-                    i = i+1
-                    params['archive'] = arguments[i]
-                else:
-                    raise Exception('-c without archive given')
-            elif arguments[i]=='-x':
-                cmd = 'extract'
-                if i<len(arguments)-1:
-                    i = i+1
-                    params['archive'] = arguments[i]
-                else:
-                    raise Exception('-x without archive given')
-            elif arguments[i]=='-p':
-                if i<len(arguments)-1:
-                    try:
-                        i = i+1
-                        params['port'] = int(arguments[i])
-                    except:
-                        raise Exception('wrong port number')
-                else:
-                    raise Exception('-p without port given')
-            elif arguments[i]=='-index':
-                if i<len(arguments)-1:
-                    i = i+1
-                    params['index'] = arguments[i]
-                else:
-                    raise Exception('-index without index given')
-            elif arguments[i]=='-d':
-                if i<len(arguments)-1:
-                    i = i+1
-                    params['directory'] = os.path.abspath(arguments[i])
-                else:
-                    raise Exception('-index without directory given')
-            elif arguments[i]=='-ext':
-                if i<len(arguments)-1:
-                    i = i+1
-                    params['extension'] = arguments[i]
-                else:
-                    raise Exception('-ext without extension')
-            elif arguments[i]=='-h':
-                if i<len(arguments)-1:
-                    i = i+1
-                    params['host'] = arguments[i]
-                else:
-                    raise Exception('-h without host given')
-            elif arguments[i]=='-nodaemon':
-                params['daemon'] = False
-            else:
-                raise Exception('unknow switch "%s"' % arguments[i])
-        else:
-            if arguments[i]=='start':
-                if cmd not in ('create', 'extract', 'stop'):
-                    cmd = 'start'
-                    if 'directory' not in params:
-                        raise Exception('directory is required for starting server')
-                else:
-                    raise Exception('command conflict: "%s" and "start"' % cmd)
-            elif arguments[i]=='stop':
-                if cmd not in ('create', 'extract', 'start'):
-                    cmd = 'stop'
-                else:
-                    raise Exception('command conflict: "%s" and "stop"' % cmd)
-            else:
-                params['sources'].append(arguments[i])
-
-    if cmd=='':
-        raise Exception('unknown command')
-    elif cmd=='create':
-        if len(params['sources'])==0:
-            raise Exception('no source listed')
-        elif 'archive' not in params:
-            raise Exception('-c without archive given')
-
-        if 'index' not in params:
-            params['index'] = None
-    elif cmd=='extract':
-        if 'archive' not in params:
-            raise Exception('-x without archive given')
-
-    return cmd, params
-
-
-def print_help():
-    print 'Usage:'
-    print '    python docserver.py -c foo.bar [-index index.html] images scripts *.html'
-    print '    python docserver.py -x foo.bar'
-    print '    python docserver.py [-p 3456] [-h localhost] [-ext dar] [-nodaemon] -d /opt/docserver start'
-    print '    python docserver.py [-p 3456] stop'
+    print '"stop" has not been implemented yet.'
 
 
 def main():
-    try:
-        cmd, params = extract_command(sys.argv[1:])
-    except Exception, e:
-        print 'Error:', e
-        print_help()
-        exit(0)
+    usage = '''%prog [options] [start|stop]
 
-    ACTIONS[cmd](params)
+Examples:
+    python docserver.py -c foo.bar [-index index.html] images scripts *.html
+    python docserver.py -x foo.bar
+    python docserver.py [-p 3456] [-h localhost] [-ext dar] [-nodaemon] -d /opt/docserver start
+    python docserver.py [-p 3456] stop'''
+    parser = OptionParser(usage)
+    parser.add_option('-c', '--create', dest='create_file',
+        help='Create a docserver archive file.')
+    parser.add_option('-d', '--directory', dest='directory',
+        help='Directory of docserver archive files.')
+    parser.add_option('-e', '--ext', dest='extension', default='dar',
+        help='Extension of archive file.')
+    parser.add_option('-H', '--host', dest='host', default='',
+        help='Host name.')
+    parser.add_option('-i', '--index', dest='index_file', help='Index file.')
+    parser.add_option('-n', '--nodaemon', dest='daemon', action='store_false', default=True,
+        help='Run as an interactive program.')
+    parser.add_option('-p', '--port', dest='port', type=int, default=3456,
+        help='Port number.')
+    parser.add_option('-x', '--extract', dest='extract_file',
+        help='Extract a docserver archive file.')
+    (options, args) = parser.parse_args()
+
+    if options.create_file and options.extract_file:
+        parser.error('options -c and -e are mutually exclusive')
+    elif options.create_file:
+        create_doc_archive(options.create_file, options.index_file, args)
+    elif options.extract_file:
+        extract_doc_archive(options.extract_file)
+    else:
+        if len(args) != 1 or (args[0] != 'start' and args[0] != 'stop'):
+            parser.error('Command "start" or "stop" is required.')
+        if args[0] == 'start':
+            if not options.directory:
+                parser.error('option -d is required.')
+            start_server(options.directory, options.host, options.port, options.extension,
+                options.daemon)
+        else:
+            stop_server()
 
