@@ -6,21 +6,23 @@
   <link rel="stylesheet" type="text/css" href="/default.css" />
   <script type="text/javascript" src="/jquery.js"></script>
   <script type="text/javascript">
+  function search_keywords() {
+    $('#results_box').html('Searching ...')
+    $('#results_box').load('/s?q='+encodeURI($("#input_search").val()),
+      function(response, status, xhr) {
+        $('#result_header').html(xhr.getResponseHeader('Search-Size') + ' results.');
+      }
+    );
+  }
   $(document).ready(function() {
     $("#input_search").bind("keypress", function(e) {
       if (e.keyCode == 13) {
-        $('#results_box').html('Searching ...')
-        $('#results_box').load('/s?q='+encodeURI($("#input_search").val()),
-          function(response, status, xhr) {
-            $('#result_header').html(xhr.getResponseHeader('Search-Size') + ' results.');
-          }
-        );
+        search_keywords();
         return false;
       }
     });
     $("#btn_search").click(function() {
-      $('#results_box').html('Searching ...')
-      $('#results_box').load('/s?q='+encodeURI($("#input_search").val()));
+      search_keywords();
     });
   });
   </script>
