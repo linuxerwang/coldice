@@ -236,3 +236,43 @@ def extract_doc_archive(archive_name):
     finally:
         if input_fh: input_fh.close()
 
+
+def walk_doc_archive(archive_name, callback):
+    input_fh = open(archive_name)
+    try:
+        header = input_fh.read(40)
+
+        version = header[3:5]
+        if version=='01' or version=='02':
+            chunk_size = 512*1024
+        elif version=='03':
+            chunk_size = 32*1024
+        else:
+            raise Exception('unknown doc archive version: "%s"' % version)
+
+        index_addr, file_count, index_file_addr = struct.unpack_from('<LLL', header, 7)
+
+        file_list = []
+
+        input_fh.seek(index_addr, os.SEEK_SET)
+        for addr in range(file_count):
+            file_addr, file_len, file_name_len = struct.unpack('<LLL', input_fh.read(12))
+            file_name = input_fh.read(file_name_len)
+            file_list.append((file_name, file_len, file_addr))
+
+        for file_name, file_len, file_addr in file_list:
+            input_fh.seek(file_addr, os.SEEK_SET)
+
+            chunks = file_len // chunk_size
+            if file_len%chunk_size !=0:
+                chunks += 1
+
+            file_body = []
+            for i in range(chunks):
+                zlen, = struct.unpack('<L', input_fh.read(4))
+                file_body.append(zlib.decompress(input_fh.read(zlen)))
+
+            callback(archive_name, file_name, file_len, ''.join(file_body))
+    finally:
+        if input_fh: input_fh.close()
+

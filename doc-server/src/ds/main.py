@@ -9,6 +9,7 @@ import threading
 from SocketServer import ThreadingMixIn, TCPServer
 from daemon import daemonize
 from optparse import OptionParser
+from search_engine import SearchIndexer
 from servlet import DocServlet
 
 
@@ -45,6 +46,22 @@ def extract_doc_archive(archive_file):
     archive.extract_doc_archive(archive_file)
 
 
+def walk_and_index(doc_base, sources):
+    print 'indexing ......'
+    indexer = SearchIndexer(os.path.abspath(doc_base))
+    try:
+        for source in sources:
+            source = os.path.abspath(source)
+            if os.path.isdir(source):
+                for root, dirs, files in os.walk(source):
+                    for one_file in files:
+                        indexer.index(os.path.join(root, one_file))
+            else:
+                indexer.index(source)
+    finally:
+        indexer.done()
+
+
 def do_start_server(params):
     directory, host, port, ext, daemon = params
     import servlet
@@ -77,8 +94,10 @@ def main():
 Examples:
     python docserver.py -c foo.bar [-index index.html] images scripts *.html
     python docserver.py -x foo.bar
+    python docserver.py -w /opt/docserver path-to-doc-folder | foo.bar
     python docserver.py [-p 3456] [-h localhost] [-ext dar] [-nodaemon] -d /opt/docserver start
-    python docserver.py [-p 3456] stop'''
+    python docserver.py [-p 3456] stop
+'''
     parser = OptionParser(usage)
     parser.add_option('-c', '--create', dest='create_file',
         help='Create a docserver archive file.')
@@ -93,16 +112,28 @@ Examples:
         help='Run as an interactive program.')
     parser.add_option('-p', '--port', dest='port', type=int, default=3456,
         help='Port number.')
+    parser.add_option('-w', '--walk', dest='walk_index',
+        help='Walk and create reverse index.')
     parser.add_option('-x', '--extract', dest='extract_file',
         help='Extract a docserver archive file.')
     (options, args) = parser.parse_args()
 
-    if options.create_file and options.extract_file:
-        parser.error('options -c and -e are mutually exclusive')
+    cmd_num = 0
+    if options.create_file:
+        cmd_num += 1
+    if options.extract_file:
+        cmd_num += 1
+    if options.walk_index:
+        cmd_num += 1
+
+    if cmd_num > 1:
+        parser.error('options -c, -e, and -w are mutually exclusive')
     elif options.create_file:
         create_doc_archive(options.create_file, options.index_file, args)
     elif options.extract_file:
         extract_doc_archive(options.extract_file)
+    elif options.walk_index:
+        walk_and_index(options.walk_index, args)
     else:
         if len(args) != 1 or (args[0] != 'start' and args[0] != 'stop'):
             parser.error('Command "start" or "stop" is required.')
