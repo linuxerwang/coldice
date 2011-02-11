@@ -9,7 +9,7 @@ import threading
 from SocketServer import ThreadingMixIn, TCPServer
 from daemon import daemonize
 from optparse import OptionParser
-from search_engine import SearchIndexer
+from indexing import SearchIndexer
 from servlet import DocServlet
 
 
@@ -92,7 +92,7 @@ def main():
     usage = '''%prog [options] [start|stop]
 
 Examples:
-    python docserver.py -c foo.bar [-index index.html] images scripts *.html
+    python docserver.py -c foo.bar [--index=index.html] images scripts *.html
     python docserver.py -x foo.bar
     python docserver.py -w /opt/docserver path-to-doc-folder | foo.bar
     python docserver.py [-p 3456] [-h localhost] [-ext dar] [-nodaemon] -d /opt/docserver start

@@ -3,8 +3,9 @@
 
 import archive
 import os
+import re
 from whoosh.index import create_in, exists_in, open_dir
-from BeautifulSoup import BeautifulSoup
+from BeautifulSoup import BeautifulSoup, Comment
 from ds import INDEX_SCHEMA
 
 
@@ -16,10 +17,42 @@ IGNORE_TAGS = set([
 ])
 
 
+class HTMLExtractor(object):
+    def __init__(self, data, url):
+        self.__parser = BeautifulSoup(data)
+        self.__url = url
+
+        # remove all comments
+        comments = self.__parser.findAll(text=lambda text:isinstance(text, Comment))
+        [comment.extract() for comment in comments]
+        # remove all those tags
+        for tag in ('script', 'a'):
+            [one.extract() for one in self.__parser.findAll(tag)]
+
+
+    def __cleanup(self, text):
+        return re.sub('\s{2,}|-|\|', ' ', text)
+
+
+    def extract(self):
+        path = self.__url.replace('/', ' ').replace('.', ' ')
+        info = {
+            'url' : self.__url, 'path' : path, 'refer' : None, 'referred' : None,
+            'h1' : None, 'h2' : None, 'h3' : None, 'h4' : None, 'h5' : None,
+            'title' : None, 'content' : None,
+        }
+
+        if self.__parser.title:
+            info['title'] = self.__cleanup(self.__parser.title.text)
+        if self.__parser.body:
+            info['content'] = self.__cleanup(self.__parser.body.getText(' '))
+
+        return info
+
+
 class SearchIndexer(object):
-    def __init__(self, doc_base, categories=None):
+    def __init__(self, doc_base):
         self.__doc_base = doc_base
-        self.__categories = categories
         self.__index_folder = os.path.join(self.__doc_base, '.indices')
 
         if not os.path.exists(self.__index_folder):
@@ -41,18 +74,10 @@ class SearchIndexer(object):
         lowered_name = file_name.lower()
         if lowered_name.endswith('.html') or lowered_name.endswith('.htm'):
             print '\tIndexing "%s:%s"' % (archive_name, file_name)
-            parser = BeautifulSoup(data)
-            title = u''
-            if parser.title:
-                title = parser.title.text
-            content = title
-            body = u''
-            if parser.body:
-                body = parser.body.getText(' ')
-                content += ' ' + body
             url = unicode(archive_name[len(self.__doc_base):-4]) + '/' + file_name
-            self.__index_write.add_document(title = title, content = content, body = body,
-                category = self.__categories, url = url)
+            extractor = HTMLExtractor(data, url)
+            info_map = extractor.extract()
+            self.__index_write.add_document(**info_map)
 
 
     def __index_html(self, path):
@@ -66,5 +91,5 @@ class SearchIndexer(object):
             self.__index_html(path)
 
     def done(self):
-        self.__index_write.commit()
+        self.__index_write.commit(optimize=True)
 

@@ -9,7 +9,9 @@ import os
 from os.path import abspath, exists, isfile, isdir, join, splitext
 from archive import get_doc_archive
 from whoosh.index import open_dir
-from whoosh.qparser import QueryParser
+from whoosh.lang.porter import stem
+from whoosh.qparser import MultifieldParser
+from whoosh.scoring import WeightingModel, BaseScorer, MultiWeighting, BM25F
 from ds import INDEX_SCHEMA
 
 
@@ -41,6 +43,56 @@ EXTENSIONS  = {
     '.ps'  : 'application/postscript',
 }
 SEARCH_RESULT = u'<div class="search_result"><a href="%s" target="_">%s</a><br>%s</div>'
+SEARCH_FIELDS = [u'path', u'title', u'content', u'h1', u'h2', u'h3', u'h4', u'h5']
+
+
+class TwoModel(WeightingModel):
+    use_final = True
+    def scorer(self, searcher, fieldname, text, qf=1):
+        return TwoModel.TwoScorer(searcher, fieldname, text)
+    def final(self, searcher, docnum, score):
+        print '--->', searcher.stored_fields(docnum)['title']
+        return score
+    class TwoScorer(BaseScorer):
+        def __init__(self, searcher, fieldname, text):
+            self.__searcher = searcher
+            self.__fieldname = fieldname
+            self.__text = text
+        def score(self, matcher):
+            # print '@ TwoScorer', self.__fieldname, self.__text
+            print '--->', self.__searcher.stored_fields(matcher.id())['title']
+            return matcher.weight() * 10
+
+
+class BoostWeighting(WeightingModel):
+    use_final = True
+
+
+    def __init__(self, booster):
+        self.__booster = booster
+
+
+    def scorer(self, searcher, fieldname, text, qf=1):
+        print '@ scorer()'
+        return BoostWeighting.BoostScorer(searcher, fieldname, text, self.__booster)
+
+
+    def final(self, searcher, docnum, score):
+        print '@ final()', score
+        return score
+
+
+    class BoostScorer(BaseScorer):
+        def __init__(self, searcher, fieldname, text, booster):
+            self.__searcher = searcher
+            self.__fieldname = fieldname
+            self.text = text
+            self.__booster = booster
+
+
+        def score(self, matcher):
+            print '@ score()', matcher.weight() * self.__booster
+            return matcher.weight() * self.__booster
 
 
 class DocServlet(SimpleHTTPRequestHandler):
@@ -87,18 +139,22 @@ class DocServlet(SimpleHTTPRequestHandler):
         if 'p' in params:
             page = int(params['p'])
         if 'q' in params:
-            keywords = unicode(' '.join([param.strip()+'*' for param in params['q'].lower().split()]))
-            query = QueryParser('content', INDEX_SCHEMA).parse(keywords)
-            searcher = open_dir(indices_dir).searcher()
-            results = searcher.search_page(query, page, pagelen=n)
+            keywords = unicode(' '.join([stem(param.strip()).decode('utf-8') for param in params['q'].lower().split()]))
+            query = MultifieldParser(SEARCH_FIELDS, schema=INDEX_SCHEMA).parse(keywords)
+            print query
+            weighting = MultiWeighting(BM25F(), title=BoostWeighting(10.0), path=BoostWeighting(8.0))
+            searcher = open_dir(indices_dir).searcher(weighting = weighting)
+            # print 'n=', n, 'page=', page
+            results = searcher.search(query, limit=None)
             self.send_header('Search-Query', keywords)
             self.send_header('Search-Size', len(results))
             self.send_header('Search-Page', page)
             self.send_header('Search-Pages', len(results) // n)
             self.send_header('Search-Limit', n)
             self.end_headers()
-            for result in results:
-                response = SEARCH_RESULT % (result['url'], result['title'], result['body'][:200])
+            for result in results[:10]:
+                # print result.rank, result.score, result.docnum
+                response = SEARCH_RESULT % (result['url'], result['title'], result['content'][:200])
                 self.wfile.write(response.encode('utf-8'))
         else:
             self.end_headers()
