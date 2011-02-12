@@ -16,6 +16,8 @@ IGNORE_TAGS = set([
     'style',
 ])
 
+H_TAGS = set(['h1', 'h2', 'h3', 'h4', 'h5'])
+
 
 class HTMLExtractor(object):
     def __init__(self, data, url):
@@ -37,10 +39,15 @@ class HTMLExtractor(object):
     def extract(self):
         path = self.__url.replace('/', ' ').replace('.', ' ')
         info = {
-            'url' : self.__url, 'path' : path, 'refer' : None, 'referred' : None,
-            'h1' : None, 'h2' : None, 'h3' : None, 'h4' : None, 'h5' : None,
-            'title' : None, 'content' : None,
+            'url' : self.__url, 'path' : path, 'refer' : 0, 'referred' : 0,
+            'h1' : u'', 'h2' : u'', 'h3' : u'', 'h4' : u'', 'h5' : u'',
+            'title' : u'', 'content' : u'',
         }
+
+        for tag in H_TAGS:
+            for one in self.__parser.findAll(tag):
+                info[tag] += ' ' + one.text
+                one.extract()
 
         if self.__parser.title:
             info['title'] = self.__cleanup(self.__parser.title.text)

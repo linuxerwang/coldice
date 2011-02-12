@@ -5,26 +5,7 @@
   <link rel="shortcut icon" href="/favicon.ico">
   <link rel="stylesheet" type="text/css" href="/default.css" />
   <script type="text/javascript" src="/jquery.js"></script>
-  <script type="text/javascript">
-  function search_keywords() {
-    $('#results_box').html('Searching ...')
-    $('#results_box').load('/s?q='+encodeURI($("#input_search").val()),
-      function(response, status, xhr) {
-        $('#result_header').html(xhr.getResponseHeader('Search-Size') + ' results.');
-      }
-    );
-  }
-  $(document).ready(function() {
-    $("#input_search").bind("keypress", function(e) {
-      if (e.keyCode == 13) {
-        search_keywords();
-        return false;
-      }
-    });
-    $("#btn_search").click(function() {
-      search_keywords();
-    });
-  });
+  <script type="text/javascript" src="/docserver.js"></script>
   </script>
 </head>
 <body bgcolor="lightgrey">

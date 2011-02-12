@@ -73,12 +73,12 @@ class BoostWeighting(WeightingModel):
 
 
     def scorer(self, searcher, fieldname, text, qf=1):
-        print '@ scorer()'
+        # print '@ scorer()'
         return BoostWeighting.BoostScorer(searcher, fieldname, text, self.__booster)
 
 
     def final(self, searcher, docnum, score):
-        print '@ final()', score
+        # print '@ final()', score
         return score
 
 
@@ -91,7 +91,7 @@ class BoostWeighting(WeightingModel):
 
 
         def score(self, matcher):
-            print '@ score()', matcher.weight() * self.__booster
+            # print '@ score()', matcher.weight() * self.__booster
             return matcher.weight() * self.__booster
 
 
@@ -141,18 +141,34 @@ class DocServlet(SimpleHTTPRequestHandler):
         if 'q' in params:
             keywords = unicode(' '.join([stem(param.strip()).decode('utf-8') for param in params['q'].lower().split()]))
             query = MultifieldParser(SEARCH_FIELDS, schema=INDEX_SCHEMA).parse(keywords)
-            print query
-            weighting = MultiWeighting(BM25F(), title=BoostWeighting(10.0), path=BoostWeighting(8.0))
+            # print query
+            weighting = MultiWeighting(BM25F(),
+                title=BoostWeighting(10.0), path=BoostWeighting(8.0),
+                h1=BoostWeighting(8.0), h2=BoostWeighting(6.0), h3=BoostWeighting(3.0),
+                h4=BoostWeighting(2.0), h5=BoostWeighting(1.2),
+            )
             searcher = open_dir(indices_dir).searcher(weighting = weighting)
             # print 'n=', n, 'page=', page
             results = searcher.search(query, limit=None)
             self.send_header('Search-Query', keywords)
             self.send_header('Search-Size', len(results))
+            pages = len(results) // n
+            if len(results) % n > 0:
+                pages += 1
+            if page < 1:
+                page = 1
+            elif page > pages:
+                page = pages
             self.send_header('Search-Page', page)
-            self.send_header('Search-Pages', len(results) // n)
+            self.send_header('Search-Pages', pages)
+            if page > 1:
+                self.send_header('Search-Prev', page - 1)
+            if page < pages:
+                self.send_header('Search-Next', page + 1)
             self.send_header('Search-Limit', n)
             self.end_headers()
-            for result in results[:10]:
+
+            for result in results[(page-1)*n : page*n]:
                 # print result.rank, result.score, result.docnum
                 response = SEARCH_RESULT % (result['url'], result['title'], result['content'][:200])
                 self.wfile.write(response.encode('utf-8'))

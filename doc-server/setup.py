@@ -7,9 +7,9 @@ setup(
     ],
     package_dir = {'':'src'},
     entry_points = {
-        'setuptools.installation': [
-            'eggsecutable = ds.main:main',
-        ],
+        # 'setuptools.installation': [
+        #     'eggsecutable = ds.main:main',
+        # ],
         'console_scripts':[
             'docserver = ds.main:main',
         ],
