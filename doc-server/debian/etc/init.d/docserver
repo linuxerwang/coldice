@@ -15,21 +15,12 @@
 
 # Start the service Doc Server
 start() {
-        initlog -c "echo -n Starting doc server: "
         su - nobody -c '/usr/bin/docserver -d /opt/docserver start'
-        ### Create the lock file ###
-        touch /var/lock/subsys/docserver
-        success $"doc server startup"
-        echo
 }
 
 # Stop the service Doc Server
 stop() {
-        initlog -c "echo -n Stopping doc server: "
-        killproc docserver
-        ### Now, delete the lock file ###
-        rm -f /var/lock/subsys/docserver
-        echo
+        /bin/fuser -k -n tcp 3456
 }
 
 ### main logic ###
