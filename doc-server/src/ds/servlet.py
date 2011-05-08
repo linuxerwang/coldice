@@ -253,6 +253,7 @@ class DocServlet(SimpleHTTPRequestHandler):
                 return
 
         # check if it's a doc archive request
+        self.path = path_info # ignore query parameters
         paths = self.path.split('/')
         fullpath = abspath(HOME_FOLDER)
         for i, path in enumerate(paths):
