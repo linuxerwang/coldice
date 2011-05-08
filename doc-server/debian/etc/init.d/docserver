@@ -1,0 +1,56 @@
+#!/bin/bash
+#
+### BEGIN INIT INFO
+# Provides: docserver
+# Required-Start: $remote_fs $syslog
+# Required-Stop: $remote_fs $syslog
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Description: Doc Server
+#
+### END INIT INFO
+
+# Get function from functions library
+. /lib/lsb/init-functions
+
+# Start the service Doc Server
+start() {
+        initlog -c "echo -n Starting doc server: "
+        su - nobody -c '/usr/bin/docserver -d /opt/docserver start'
+        ### Create the lock file ###
+        touch /var/lock/subsys/docserver
+        success $"doc server startup"
+        echo
+}
+
+# Stop the service Doc Server
+stop() {
+        initlog -c "echo -n Stopping doc server: "
+        killproc docserver
+        ### Now, delete the lock file ###
+        rm -f /var/lock/subsys/docserver
+        echo
+}
+
+### main logic ###
+case "$1" in
+  start)
+        start
+        ;;
+  stop)
+        stop
+        ;;
+  status)
+        status docserver
+        ;;
+  restart|reload|condrestart)
+        stop
+        start
+        ;;
+  *)
+        echo $"Usage: $0 {start|stop|restart|reload|status}"
+        exit 1
+esac
+
+exit 0
+

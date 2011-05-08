@@ -2,8 +2,8 @@ Package: docserver
 Version: 1.0.0
 Section: utils
 Priority: optional
-Architecture: amd64
+Architecture: all
 Depends: whoosh (>=1.6.2)
 Maintainer: zhwang
-Description: Whoosh.
+Description: docserver.
 
